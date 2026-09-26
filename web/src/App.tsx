@@ -57,7 +57,10 @@ const router = createBrowserRouter([
       { path: '*', element: <DashboardPage /> },
     ],
   },
-])
+], {
+  // На GitHub Pages сайт живёт в /AutoBadget/ — базовый путь приходит из сборки
+  basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/',
+})
 
 export const App = () => {
   useEffect(() => {

@@ -2,10 +2,11 @@
   "name": "AutoBudget",
   "short_name": "AutoBudget",
   "description": "Учёт расходов на автомобиль",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "lang": "ru",
-  "icons": [{ "src": "/icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
+  "icons": [{ "src": "icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
 }

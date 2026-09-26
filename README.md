@@ -1,6 +1,6 @@
 # AutoBudget
 
-> Веб-версия лежит в папке [`web/`](web/README.md) — React + TypeScript, данные в браузере.
+> **Веб-версия онлайн: https://ddk79j5z5r-dotcom.github.io/AutoBadget/** · исходники в папке [`web/`](web/README.md) — React + TypeScript, данные в браузере.
 
 Учёт расходов на автомобиль. SwiftUI · MVVM · SwiftData · Swift Charts · NavigationStack. iOS 17+.
 

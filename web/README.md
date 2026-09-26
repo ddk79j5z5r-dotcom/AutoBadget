@@ -12,6 +12,9 @@ npm run dev
 
 Откройте http://localhost:5173. При первом запуске загружаются демо-данные Toyota Aristo JZS160.
 
+Онлайн-версия: https://ddk79j5z5r-dotcom.github.io/AutoBadget/ — обновляется автоматически
+при каждом push в `main` (GitHub Actions, `.github/workflows/deploy-web.yml`).
+
 Сборка для публикации (статические файлы в `dist/`, подходит любой хостинг статики):
 
 ```bash

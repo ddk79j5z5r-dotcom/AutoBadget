@@ -25,7 +25,7 @@ export const AppShell = () => {
       {/* Боковое меню — десктоп */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-1 border-r border-stroke px-4 py-6 lg:flex">
         <div className="mb-6 flex items-center gap-3 px-2">
-          <img src="/icon.png" alt="" className="size-10 rounded-[10px]" />
+          <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="size-10 rounded-[10px]" />
           <div>
             <div className="font-bold">AutoBudget</div>
             <div className="text-xs text-text-3">{car ? `${car.make} ${car.model}` : ' '}</div>

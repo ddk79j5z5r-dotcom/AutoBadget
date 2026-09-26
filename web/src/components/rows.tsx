@@ -91,7 +91,7 @@ export const CarImage = ({ photo, className }: { photo?: Blob; className?: strin
   const url = useObjectURL(photo)
   return url
     ? <img src={url} alt="Фото автомобиля" className={`object-cover ${className ?? ''}`} />
-    : <img src="/car-hero.png" alt="" className={`object-contain ${className ?? ''}`} />
+    : <img src={`${import.meta.env.BASE_URL}car-hero.png`} alt="" className={`object-contain ${className ?? ''}`} />
 }
 
 /** URL для Blob из IndexedDB с автоматическим освобождением */

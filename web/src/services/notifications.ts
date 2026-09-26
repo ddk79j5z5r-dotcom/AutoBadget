@@ -18,7 +18,7 @@ export const requestPermission = async (): Promise<Permission> =>
 
 const show = (title: string, body: string, tag: string) => {
   if (permission() !== 'granted') return
-  new Notification(`AutoBudget · ${title}`, { body, tag, icon: '/icon.png' })
+  new Notification(`AutoBudget · ${title}`, { body, tag, icon: `${import.meta.env.BASE_URL}icon.png` })
 }
 
 /** Уведомляет, если после изменения пробега остаток пересёк порог (один раз — в момент пересечения) */
