@@ -1,6 +1,6 @@
 import {
-  BellRing, Camera, CalendarClock, ChevronRight, CircleCheck, Cog, Download, Ellipsis, Gauge, Hammer, Pencil,
-  RotateCcw, Upload, Waypoints, Wrench, type LucideIcon,
+  ArrowLeftRight, BellRing, Camera, CalendarClock, ChevronRight, CircleCheck, Cog, Download, Ellipsis, Eraser, Gauge, Hammer,
+  Pencil, Sparkles, Trash, Upload, Waypoints, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
@@ -13,17 +13,22 @@ import { statusInfo } from '@/models/serviceTracking'
 import { repairCategoryInfo, repairTotal, type Car } from '@/models/types'
 import { exportBackup, importBackup } from '@/services/backup'
 import { db } from '@/services/db'
-import { resetDemo } from '@/services/demoData'
+import { clearCarData, deleteCar } from '@/services/dataService'
+import { addDemoCar } from '@/services/demoData'
 import { dateShort, km, rub } from '@/services/formatters'
 import { downscaleImage } from '@/services/images'
-import { EditCarSheet } from '@/sheets/EditCarSheet'
+import { CarFormSheet } from '@/sheets/CarFormSheet'
+import { CarSwitcherSheet } from '@/sheets/CarSwitcherSheet'
+import { useCurrentCar } from '@/viewmodels/currentCar'
 import { useGarageViewModel } from '@/viewmodels/viewModels'
 
 export const GaragePage = () => {
   const vm = useGarageViewModel()
   const [editing, setEditing] = useState(false)
   const [menu, setMenu] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [switching, setSwitching] = useState(false)
+  const [confirm, setConfirm] = useState<'clear' | 'delete'>()
+  const { select } = useCurrentCar()
   const [confirmImport, setConfirmImport] = useState<File>()
   const [error, setError] = useState<string>()
   const importInput = useRef<HTMLInputElement>(null)
@@ -43,10 +48,15 @@ export const GaragePage = () => {
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
                 <div className="animate-appear absolute right-0 top-12 z-40 w-64 overflow-hidden rounded-small border border-stroke bg-elevated py-1 shadow-2xl">
+                  <MenuItem icon={ArrowLeftRight} onClick={() => { setMenu(false); setSwitching(true) }}>Мои автомобили</MenuItem>
                   <MenuItem icon={Pencil} onClick={() => { setMenu(false); setEditing(true) }}>Редактировать авто</MenuItem>
+                  <MenuItem icon={Sparkles} onClick={async () => { setMenu(false); select(await addDemoCar()) }}>Добавить демо-автомобиль</MenuItem>
+                  <div className="my-1 h-px bg-stroke" />
                   <MenuItem icon={Download} onClick={() => { setMenu(false); exportBackup() }}>Экспорт данных (JSON)</MenuItem>
                   <MenuItem icon={Upload} onClick={() => { setMenu(false); importInput.current?.click() }}>Импорт из файла</MenuItem>
-                  <MenuItem icon={RotateCcw} onClick={() => { setMenu(false); setConfirmReset(true) }}>Загрузить демо-данные</MenuItem>
+                  <div className="my-1 h-px bg-stroke" />
+                  <MenuItem icon={Eraser} danger onClick={() => { setMenu(false); setConfirm('clear') }}>Очистить данные автомобиля</MenuItem>
+                  <MenuItem icon={Trash} danger onClick={() => { setMenu(false); setConfirm('delete') }}>Удалить автомобиль</MenuItem>
                 </div>
               </>
             )}
@@ -150,19 +160,26 @@ export const GaragePage = () => {
               </div>
             </div>
           </>
-        ) : (
-          <EmptyState icon={Gauge} title="Нет автомобиля" message="Загрузите демо-данные через меню ⋯" />
-        )}
+        ) : null}
       </Page>
 
-      {editing && car && <EditCarSheet car={car} onClose={() => setEditing(false)} />}
-      {confirmReset && (
+      {editing && car && <CarFormSheet car={car} onClose={() => setEditing(false)} />}
+      {switching && <CarSwitcherSheet onClose={() => setSwitching(false)} />}
+      {confirm === 'clear' && car && (
         <ConfirmDialog
-          title="Заменить все данные демонстрационными?"
-          message="Текущие расходы, ремонты, детали и напоминания будут удалены."
-          confirmTitle="Заменить"
-          onConfirm={async () => { setConfirmReset(false); await resetDemo() }}
-          onCancel={() => setConfirmReset(false)}
+          title={`Очистить данные ${car.make} ${car.model}?`}
+          message="Будут удалены все расходы, заправки, ремонты, детали и напоминания этого автомобиля. Сам автомобиль и его фото останутся."
+          confirmTitle="Очистить"
+          onConfirm={async () => { setConfirm(undefined); await clearCarData(car.id) }}
+          onCancel={() => setConfirm(undefined)}
+        />
+      )}
+      {confirm === 'delete' && car && (
+        <ConfirmDialog
+          title={`Удалить ${car.make} ${car.model}?`}
+          message="Автомобиль и все его записи будут удалены без возможности восстановления."
+          onConfirm={async () => { setConfirm(undefined); await deleteCar(car.id) }}
+          onCancel={() => setConfirm(undefined)}
         />
       )}
       {confirmImport && (
@@ -242,9 +259,12 @@ const InfoCell = ({ title, value }: { title: string; value: string }) => (
   </Card>
 )
 
-const MenuItem = ({ icon: Icon, onClick, children }: { icon: LucideIcon; onClick: () => void; children: ReactNode }) => (
-  <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-field">
-    <Icon size={17} className="text-accent" /> {children}
+const MenuItem = ({ icon: Icon, onClick, danger, children }: {
+  icon: LucideIcon; onClick: () => void; danger?: boolean; children: ReactNode
+}) => (
+  <button type="button" onClick={onClick}
+    className={cx('flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-field', danger && 'text-danger')}>
+    <Icon size={17} className={danger ? 'text-danger' : 'text-accent'} /> {children}
   </button>
 )
 

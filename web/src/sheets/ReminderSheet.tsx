@@ -5,15 +5,18 @@ import { ChipBar, DangerButton, FieldInput, FieldLabel, FieldRow, FilterChip, Pr
 import { REMINDER_KINDS, newId, reminderKindInfo, type Reminder, type ReminderKind } from '@/models/types'
 import { db } from '@/services/db'
 import { days, fromDateInput, parseNumber, toDateInput } from '@/services/formatters'
+import { useCar } from '@/viewmodels/useData'
 
 const text = (n: number) => (n > 0 ? String(n) : '')
 
 /** Новое напоминание / редактирование — порт ReminderEditView + ReminderEditViewModel */
-export const ReminderSheet = ({ reminder, currentMileage, onClose }: {
+export const ReminderSheet = ({ reminder, onClose }: {
   reminder?: Reminder
-  currentMileage: number
   onClose: () => void
 }) => {
+  const car = useCar()
+  const carId = reminder?.carId ?? car?.id
+  const currentMileage = car?.mileage ?? 0
   const [kind, setKind] = useState<ReminderKind>(reminder?.kind ?? 'custom')
   const [title, setTitle] = useState(reminder?.title ?? reminderKindInfo.custom.title)
   const [intervalKm, setIntervalKm] = useState(text(reminder?.intervalKm ?? reminderKindInfo.custom.intervalKm))
@@ -26,7 +29,7 @@ export const ReminderSheet = ({ reminder, currentMileage, onClose }: {
 
   const km = Math.round(parseNumber(intervalKm) ?? 0)
   const months = Math.round(parseNumber(intervalMonths) ?? 0)
-  const valid = title.trim() !== '' && (km > 0 || months > 0)
+  const valid = title.trim() !== '' && (km > 0 || months > 0) && !!carId
 
   const changeKind = (k: ReminderKind) => {
     if (!title || title === reminderKindInfo[kind].title) setTitle(reminderKindInfo[k].title)
@@ -36,9 +39,10 @@ export const ReminderSheet = ({ reminder, currentMileage, onClose }: {
   }
 
   const save = async () => {
-    if (!valid) return
+    if (!valid || !carId) return
     await db.reminders.put({
       id: reminder?.id ?? newId(),
+      carId,
       kind,
       title: title.trim(),
       intervalKm: km,

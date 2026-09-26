@@ -43,7 +43,6 @@ export const RemindersPage = () => {
       {(adding || editing) && (
         <ReminderSheet
           reminder={editing}
-          currentMileage={mileage}
           onClose={() => { setAdding(false); setEditing(undefined) }}
         />
       )}

@@ -8,20 +8,27 @@ import { AllLink, Appear, Card, CategoryIcon, Divider, EmptyState, SectionHeader
 import { expenseCategoryInfo, type Expense } from '@/models/types'
 import { km, rub } from '@/services/formatters'
 import { AddExpenseSheet } from '@/sheets/AddExpenseSheet'
+import { CarSwitcherSheet } from '@/sheets/CarSwitcherSheet'
 import { useDashboardViewModel } from '@/viewmodels/viewModels'
 
 export const DashboardPage = () => {
   const vm = useDashboardViewModel()
   const [editing, setEditing] = useState<Expense>()
+  const [switching, setSwitching] = useState(false)
 
   return (
-    <Page className="pt-safe pt-6 lg:pt-10">
+    <Page className="pt-[calc(env(safe-area-inset-top)+1.5rem)] lg:pt-10">
       {vm.car && (
         <Appear>
-          <Link to="/garage" className="flex items-center gap-2 transition active:scale-[0.99]">
+          <button
+            type="button"
+            onClick={() => setSwitching(true)}
+            className="flex w-full items-center gap-2 text-left transition active:scale-[0.99]"
+            aria-label="Сменить автомобиль"
+          >
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-1.5">
-                <h1 className="font-rounded truncate text-2xl font-bold lg:text-3xl">{vm.car.make} {vm.car.model}</h1>
+                <h1 className="font-rounded line-clamp-2 text-2xl font-bold leading-tight lg:text-3xl">{vm.car.make} {vm.car.model}</h1>
                 <ChevronDown size={16} strokeWidth={2.8} className="shrink-0 text-text-2" />
               </div>
               <div className="text-sm text-text-2">
@@ -32,7 +39,7 @@ export const DashboardPage = () => {
               </span>
             </div>
             <CarImage photo={vm.car.photo} className="h-20 w-36 rounded-small lg:h-28 lg:w-52" />
-          </Link>
+          </button>
         </Appear>
       )}
 
@@ -118,6 +125,7 @@ export const DashboardPage = () => {
       </div>
 
       {editing && <AddExpenseSheet expense={editing} onClose={() => setEditing(undefined)} />}
+      {switching && <CarSwitcherSheet onClose={() => setSwitching(false)} />}
     </Page>
   )
 }

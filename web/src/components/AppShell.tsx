@@ -1,7 +1,8 @@
-import { CarFront, ChartColumn, House, List, Plus, type LucideIcon } from 'lucide-react'
+import { CarFront, ChartColumn, ChevronsUpDown, House, List, Plus, type LucideIcon } from 'lucide-react'
 import { Suspense, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { AddExpenseSheet } from '@/sheets/AddExpenseSheet'
+import { CarSwitcherSheet } from '@/sheets/CarSwitcherSheet'
 import { useCar } from '@/viewmodels/useData'
 import { cx } from './ui'
 
@@ -18,19 +19,26 @@ const TABS: { to: string; title: string; icon: LucideIcon; end?: boolean }[] = [
  */
 export const AppShell = () => {
   const [adding, setAdding] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const car = useCar()
 
   return (
     <div className="screen-glow min-h-dvh lg:flex">
       {/* Боковое меню — десктоп */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-1 border-r border-stroke px-4 py-6 lg:flex">
-        <div className="mb-6 flex items-center gap-3 px-2">
+        <button
+          type="button"
+          onClick={() => setSwitching(true)}
+          className="mb-6 flex items-center gap-3 rounded-small px-2 py-1.5 text-left transition hover:bg-card"
+          title="Сменить автомобиль"
+        >
           <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="size-10 rounded-[10px]" />
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="font-bold">AutoBudget</div>
-            <div className="text-xs text-text-3">{car ? `${car.make} ${car.model}` : ' '}</div>
+            <div className="truncate text-xs text-text-3">{car ? `${car.make} ${car.model}` : ' '}</div>
           </div>
-        </div>
+          <ChevronsUpDown size={16} className="shrink-0 text-text-3" />
+        </button>
         {TABS.map(tab => (
           <NavLink key={tab.to} to={tab.to} end={tab.end}>
             {({ isActive }) => (
@@ -46,6 +54,9 @@ export const AppShell = () => {
           <Plus size={20} strokeWidth={2.5} /> Добавить расход
         </button>
       </aside>
+
+      {/* Подложка под статус-баром: в режиме «на экране Домой» контент не уходит под часы и размытие iOS */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg/90 backdrop-blur-xl" />
 
       <main className="min-w-0 flex-1 pb-28 lg:pb-10">
         <Suspense fallback={null}>
@@ -71,7 +82,8 @@ export const AppShell = () => {
         </div>
       </nav>
 
-      {adding && <AddExpenseSheet currentMileage={car?.mileage ?? 0} onClose={() => setAdding(false)} />}
+      {adding && <AddExpenseSheet onClose={() => setAdding(false)} />}
+      {switching && <CarSwitcherSheet onClose={() => setSwitching(false)} />}
     </div>
   )
 }
@@ -104,7 +116,11 @@ const SideItem = ({ icon: Icon, active, children }: { icon: LucideIcon; active: 
  * back — куда вернуться, если экран открыт по прямой ссылке и истории нет.
  */
 export const PageHeader = ({ title, back, actions }: { title: string; back?: string; actions?: ReactNode }) => (
-  <header className={cx('pt-safe flex items-center gap-3 px-4 lg:px-8', back ? 'pb-2 pt-4' : 'pb-4 pt-8')}>
+  <header className={cx(
+    'flex items-center gap-3 px-4 lg:px-8',
+    // Отступ считается от выреза экрана: иначе заголовок попадает под статус-бар
+    back ? 'pb-2 pt-[calc(env(safe-area-inset-top)+1rem)]' : 'pb-4 pt-[calc(env(safe-area-inset-top)+2rem)]',
+  )}>
     {back && <BackButton fallback={back} />}
     <h1 className={cx('min-w-0 flex-1 truncate font-bold', back ? 'text-xl' : 'text-[34px] leading-tight')}>{title}</h1>
     {actions}

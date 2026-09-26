@@ -11,7 +11,7 @@ export class AutoBudgetDB extends Dexie {
 
   constructor() {
     super('autobudget')
-    // Индексы — только поля, по которым идут выборки. Новые версии схемы добавлять через this.version(2)…
+    // Индексы — только поля, по которым идут выборки
     this.version(1).stores({
       cars: 'id, createdAt',
       expenses: 'id, date, category, repairId',
@@ -19,6 +19,24 @@ export class AutoBudgetDB extends Dexie {
       parts: 'id, repairId, replacesId, isActive, installDate',
       reminders: 'id',
     })
+    // v2: несколько автомобилей — все записи привязаны к машине через carId
+    this.version(2)
+      .stores({
+        expenses: 'id, date, category, repairId, carId',
+        repairs: 'id, date, carId',
+        parts: 'id, repairId, replacesId, isActive, installDate, carId',
+        reminders: 'id, carId',
+      })
+      .upgrade(async tx => {
+        // До v2 автомобиль был один — все существующие записи принадлежат ему
+        const car = await tx.table<Car>('cars').orderBy('createdAt').first()
+        if (!car) return
+        for (const table of ['expenses', 'repairs', 'parts', 'reminders']) {
+          await tx.table(table).toCollection().modify((r: { carId?: string }) => {
+            r.carId ??= car.id
+          })
+        }
+      })
   }
 }
 

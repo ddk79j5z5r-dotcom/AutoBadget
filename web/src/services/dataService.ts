@@ -1,17 +1,23 @@
-// Операции, затрагивающие несколько таблиц сразу — порт DataService.swift
+// Операции, затрагивающие несколько таблиц сразу — порт DataService.swift.
+// Все записи принадлежат автомобилю (carId); операции работают в пределах одной машины.
 
 import { trackPart, trackReminder, type Tracked } from '@/models/serviceTracking'
-import { newId, repairExpenseCategory, repairTotal, type Part, type RepairRecord } from '@/models/types'
+import { newId, repairExpenseCategory, repairTotal, type Car, type ID, type Part, type RepairRecord } from '@/models/types'
 import { db } from './db'
 import { notifyMileageThresholds } from './notifications'
 
-export const getCar = async () => (await db.cars.orderBy('createdAt').first()) ?? undefined
+export const activeParts = (carId: ID) =>
+  db.parts.where('carId').equals(carId).filter(p => p.isActive === 1).toArray()
 
-export const activeParts = () => db.parts.where('isActive').equals(1).toArray()
-
-/** Всё, что отслеживается по ресурсу: регламентные работы и установленные детали */
-export const trackedItems = async (): Promise<Tracked[]> => {
-  const [reminders, parts] = await Promise.all([db.reminders.toArray(), activeParts()])
+/**
+ * Всё, что отслеживается по ресурсу: регламентные работы и установленные детали.
+ * Без carId — по всем автомобилям (проверка сроков для уведомлений при открытии приложения).
+ */
+export const trackedItems = async (carId?: ID): Promise<Tracked[]> => {
+  const [reminders, parts] = await Promise.all([
+    carId ? db.reminders.where('carId').equals(carId).toArray() : db.reminders.toArray(),
+    carId ? activeParts(carId) : db.parts.where('isActive').equals(1).toArray(),
+  ])
   return [...reminders.map(trackReminder), ...parts.map(trackPart)]
 }
 
@@ -19,13 +25,38 @@ export const trackedItems = async (): Promise<Tracked[]> => {
  * Единая точка изменения пробега: обновляет автомобиль и уведомляет о пересечённых порогах.
  * onlyIncrease — для записей расходов и ремонтов (старая запись не должна «откатить» пробег).
  */
-export const updateMileage = async (mileage: number, onlyIncrease = true) => {
-  const car = await getCar()
+export const updateMileage = async (carId: ID, mileage: number, onlyIncrease = true) => {
+  const car = await db.cars.get(carId)
   if (!car || mileage <= 0 || mileage === car.mileage) return
   if (onlyIncrease && mileage < car.mileage) return
   await db.cars.update(car.id, { mileage })
-  notifyMileageThresholds(await trackedItems(), car.mileage, mileage)
+  notifyMileageThresholds(await trackedItems(carId), car.mileage, mileage)
 }
+
+// MARK: - Автомобили
+
+export const addCar = async (fields: Omit<Car, 'id' | 'createdAt'>) => {
+  const car: Car = { ...fields, id: newId(), createdAt: Date.now() }
+  await db.cars.add(car)
+  return car
+}
+
+/** Удаляет все записи автомобиля — расходы, ремонты, детали, напоминания. Сам автомобиль остаётся */
+export const clearCarData = (carId: ID) =>
+  db.transaction('rw', [db.expenses, db.repairs, db.parts, db.reminders], async () => {
+    await Promise.all([
+      db.expenses.where('carId').equals(carId).delete(),
+      db.repairs.where('carId').equals(carId).delete(),
+      db.parts.where('carId').equals(carId).delete(),
+      db.reminders.where('carId').equals(carId).delete(),
+    ])
+  })
+
+export const deleteCar = (carId: ID) =>
+  db.transaction('rw', [db.cars, db.expenses, db.repairs, db.parts, db.reminders], async () => {
+    await clearCarData(carId)
+    await db.cars.delete(carId)
+  })
 
 // MARK: - Детали
 
@@ -33,11 +64,11 @@ const samePosition = (a: Part, b: Part) =>
   a.category === b.category && a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
 
 /**
- * Ставит новую деталь на учёт: ранее установленная деталь на той же позиции
+ * Ставит новую деталь на учёт: ранее установленная деталь на той же позиции того же автомобиля
  * снимается с учёта и связывается с новой в историю замен.
  */
 export const registerInstallation = async (part: Part) => {
-  const previous = (await activeParts())
+  const previous = (await activeParts(part.carId))
     .filter(p => p.id !== part.id && samePosition(p, part) && p.installDate <= part.installDate)
     .sort((a, b) => b.installDate - a.installDate)[0]
   if (previous) {
@@ -77,6 +108,7 @@ export const replacementHistory = async (part: Part) => {
 export const syncExpense = async (repair: RepairRecord) => {
   const existing = await db.expenses.where('repairId').equals(repair.id).first()
   const fields = {
+    carId: repair.carId,
     title: repair.title,
     category: repairExpenseCategory(repair.category),
     date: repair.date,

@@ -9,7 +9,7 @@ import { db } from '@/services/db'
 import { deletePart, registerInstallation, syncExpense, updateMileage } from '@/services/dataService'
 import { fromDateInput, grouped, parseNumber, rub, toDateInput } from '@/services/formatters'
 import { downscaleImage } from '@/services/images'
-import { usePartsOfRepair } from '@/viewmodels/useData'
+import { useCar, usePartsOfRepair } from '@/viewmodels/useData'
 import {
   PartFormSheet, draftFromPart, draftResource, draftValues, newPartDraft, type PartDraft,
 } from './PartFormSheet'
@@ -17,16 +17,17 @@ import {
 const money = (n?: number) => (n ? grouped(n) : '')
 
 /** Новый ремонт / редактирование — порт AddRepairView + AddRepairViewModel */
-export const AddRepairSheet = ({ repair, currentMileage = 0, onClose }: {
+export const AddRepairSheet = ({ repair, onClose }: {
   repair?: RepairRecord
-  currentMileage?: number
   onClose: () => void
 }) => {
+  const car = useCar()
+  const carId = repair?.carId ?? car?.id
   const savedParts = usePartsOfRepair(repair?.id)
   const [title, setTitle] = useState(repair?.title ?? '')
   const [category, setCategory] = useState<RepairCategory>(repair?.category ?? 'engine')
   const [date, setDate] = useState(toDateInput(repair?.date ?? Date.now()))
-  const [mileage, setMileage] = useState(String(repair?.mileage || currentMileage || ''))
+  const [mileage, setMileage] = useState(String(repair?.mileage || car?.mileage || ''))
   const [worksDone, setWorksDone] = useState(repair?.worksDone ?? '')
   const [partsUsed, setPartsUsed] = useState(repair?.partsUsed ?? '')
   const [labor, setLabor] = useState(money(repair?.laborCost))
@@ -45,7 +46,7 @@ export const AddRepairSheet = ({ repair, currentMileage = 0, onClose }: {
   const laborValue = parseNumber(labor) ?? 0
   const partsValue = parseNumber(partsCost) ?? 0
   const draftsTotal = partDrafts.reduce((s, d) => s + draftValues(d).purchasePrice, 0)
-  const valid = title.trim() !== ''
+  const valid = title.trim() !== '' && !!carId
 
   const upsertDraft = (d: PartDraft) =>
     setDrafts(prev => {
@@ -59,9 +60,10 @@ export const AddRepairSheet = ({ repair, currentMileage = 0, onClose }: {
   }
 
   const save = async () => {
-    if (!valid) return
+    if (!valid || !carId) return
     const record: RepairRecord = {
       id: repair?.id ?? newId(),
+      carId,
       title: title.trim(),
       category,
       date: fromDateInput(date),
@@ -81,12 +83,12 @@ export const AddRepairSheet = ({ repair, currentMileage = 0, onClose }: {
         if (d.part) {
           await db.parts.update(d.part.id, values)
         } else {
-          await registerInstallation({ id: newId(), ...values, isActive: 1, repairId: record.id })
+          await registerInstallation({ id: newId(), ...values, isActive: 1, repairId: record.id, carId })
         }
       }
       await syncExpense(record)
     })
-    await updateMileage(record.mileage)
+    await updateMileage(carId, record.mileage)
     onClose()
   }
 

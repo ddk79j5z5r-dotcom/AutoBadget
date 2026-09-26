@@ -5,7 +5,8 @@ import type { Car, Expense, Part, Reminder, RepairRecord } from '@/models/types'
 import { db } from './db'
 
 const FORMAT = 'autobudget-backup'
-const VERSION = 1
+// v2 — записи привязаны к автомобилю (carId); файлы v1 импортируются с привязкой к первой машине
+const VERSION = 2
 
 const blobToDataURL = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -68,13 +69,15 @@ export const importBackup = async (file: File) => {
   }
   if (data.format !== FORMAT) throw new Error('Это не резервная копия AutoBudget')
   const cars = await Promise.all(data.cars.map(c => decodePhotos<Car>(c)))
-  const repairs = await Promise.all(data.repairs.map(r => decodePhotos<RepairRecord>(r)))
+  const fallbackCarId = [...cars].sort((a, b) => a.createdAt - b.createdAt)[0]?.id
+  const withCar = <T extends { carId?: string }>(items: T[]) => items.map(i => ({ ...i, carId: i.carId ?? fallbackCarId }))
+  const repairs = withCar(await Promise.all(data.repairs.map(r => decodePhotos<RepairRecord>(r))))
   await db.transaction('rw', [db.cars, db.expenses, db.repairs, db.parts, db.reminders], async () => {
     await Promise.all([db.cars.clear(), db.expenses.clear(), db.repairs.clear(), db.parts.clear(), db.reminders.clear()])
     await db.cars.bulkAdd(cars)
-    await db.expenses.bulkAdd(data.expenses)
+    await db.expenses.bulkAdd(withCar(data.expenses))
     await db.repairs.bulkAdd(repairs)
-    await db.parts.bulkAdd(data.parts)
-    await db.reminders.bulkAdd(data.reminders)
+    await db.parts.bulkAdd(withCar(data.parts))
+    await db.reminders.bulkAdd(withCar(data.reminders))
   })
 }

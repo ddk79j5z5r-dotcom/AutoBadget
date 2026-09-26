@@ -7,12 +7,11 @@ import { Appear, Card, ChipBar, Divider, EmptyState, FilterChip, SearchField, St
 import { REPAIR_CATEGORIES, repairCategoryInfo, repairTotal, type RepairCategory, type RepairRecord } from '@/models/types'
 import { dateShort, km, plural, rub } from '@/services/formatters'
 import { AddRepairSheet } from '@/sheets/AddRepairSheet'
-import { useCar, useRepairs } from '@/viewmodels/useData'
+import { useRepairs } from '@/viewmodels/useData'
 import { filterRepairs, repairStats } from '@/viewmodels/viewModels'
 
 export const RepairsPage = () => {
   const repairs = useRepairs()
-  const car = useCar()
   const [category, setCategory] = useState<RepairCategory>()
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
@@ -77,7 +76,7 @@ export const RepairsPage = () => {
           {items.map(r => <RepairCard key={r.id} repair={r} />)}
         </div>
       </Page>
-      {adding && <AddRepairSheet currentMileage={car?.mileage} onClose={() => setAdding(false)} />}
+      {adding && <AddRepairSheet onClose={() => setAdding(false)} />}
     </>
   )
 }

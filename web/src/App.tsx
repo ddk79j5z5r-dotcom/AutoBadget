@@ -2,8 +2,9 @@ import { lazy, useEffect, type ComponentType } from 'react'
 import { createBrowserRouter, RouterProvider, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { trackedItems } from '@/services/dataService'
-import { seedIfNeeded } from '@/services/demoData'
 import { notifyDueDates } from '@/services/notifications'
+import { WelcomePage } from '@/pages/WelcomePage'
+import { CurrentCarProvider, useCurrentCar } from '@/viewmodels/currentCar'
 
 // Экраны грузятся по требованию — первая загрузка не тянет графики и формы всех разделов сразу
 const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
@@ -31,12 +32,18 @@ const ScrollToTop = () => {
   return null
 }
 
-const Layout = () => (
-  <>
-    <ScrollToTop />
-    <AppShell />
-  </>
-)
+/** Пока нет ни одного автомобиля — приветственный экран с добавлением машины */
+const Layout = () => {
+  const { cars } = useCurrentCar()
+  if (cars === undefined) return null
+  if (cars.length === 0) return <WelcomePage />
+  return (
+    <>
+      <ScrollToTop />
+      <AppShell />
+    </>
+  )
+}
 
 const router = createBrowserRouter([
   {
@@ -64,13 +71,17 @@ const router = createBrowserRouter([
 
 export const App = () => {
   useEffect(() => {
-    // Первый запуск — демо-данные; затем проверка сроков для уведомлений по времени
+    // Проверка сроков для уведомлений по времени — по всем автомобилям
     const checkDue = async () => notifyDueDates(await trackedItems())
-    seedIfNeeded().then(checkDue)
+    checkDue()
     const onVisible = () => document.visibilityState === 'visible' && checkDue()
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
-  return <RouterProvider router={router} />
+  return (
+    <CurrentCarProvider>
+      <RouterProvider router={router} />
+    </CurrentCarProvider>
+  )
 }

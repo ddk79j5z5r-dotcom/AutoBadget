@@ -4,7 +4,7 @@ import {
   newId, type Expense, type ExpenseCategory, type FuelType, type Part, type RepairCategory, type RepairRecord, type Reminder,
 } from '@/models/types'
 import { db } from './db'
-import { deleteAll, registerInstallation, syncExpense } from './dataService'
+import { addCar, registerInstallation, syncExpense } from './dataService'
 
 const date = (y: number, m: number, d: number) => new Date(y, m - 1, d, 12).getTime()
 
@@ -20,15 +20,15 @@ const seeded = (seed: number) => {
   }
 }
 
-type RepairSeed = Omit<RepairRecord, 'id' | 'partsUsed' | 'comment'> & { partsUsed?: string; comment?: string }
+type RepairSeed = Omit<RepairRecord, 'id' | 'carId' | 'partsUsed' | 'comment'> & { partsUsed?: string; comment?: string }
 type PartSeed = Pick<Part, 'name' | 'category' | 'manufacturer' | 'articleNumber' | 'purchasePrice'> &
   Partial<Pick<Part, 'serviceLifeKm' | 'serviceLifeMonths' | 'notes'>>
 
-const repair = (r: RepairSeed): RepairRecord => ({ id: newId(), partsUsed: '', comment: '', ...r })
+const repair = (r: RepairSeed): RepairSeed => r
 const part = (p: PartSeed): PartSeed => p
 
 // Хронологический порядок важен: новая деталь снимает с учёта ранее установленную на той же позиции
-const REPAIRS: [RepairRecord, PartSeed[]][] = [
+const REPAIRS: [RepairSeed, PartSeed[]][] = [
   [repair({ title: 'Замена ремня ГРМ и помпы', category: 'engine', date: date(2021, 11, 10), mileage: 342_000,
     worksDone: 'Замена ремня ГРМ, натяжного и обводного роликов, помпы', partsUsed: 'Ролики ГРМ, антифриз',
     laborCost: 6_000, partsCost: 14_500, shop: 'Garage 2JZ' }),
@@ -78,21 +78,22 @@ const REPAIRS: [RepairRecord, PartSeed[]][] = [
     laborCost: 9_000, partsCost: 2_500, shop: 'Кузовной цех «Гранд»' }), []],
 ]
 
-const seedRepairs = async () => {
-  for (const [record, parts] of REPAIRS) {
+const seedRepairs = async (carId: string) => {
+  for (const [seed, parts] of REPAIRS) {
+    const record: RepairRecord = { id: newId(), carId, partsUsed: '', comment: '', ...seed }
     await db.repairs.add(record)
     for (const p of parts) {
       await registerInstallation({
         id: newId(), serviceLifeKm: 0, serviceLifeMonths: 0, notes: '', ...p,
         category: p.category as RepairCategory,
-        installDate: record.date, installMileage: record.mileage, isActive: 1, repairId: record.id,
+        installDate: record.date, installMileage: record.mileage, isActive: 1, repairId: record.id, carId,
       })
     }
     await syncExpense(record)
   }
 }
 
-const seedExpenses = async () => {
+const seedExpenses = async (carId: string) => {
   const rand = seeded(160)
   const between = (a: number, b: number) => a + (b - a) * rand()
   const now = Date.now()
@@ -111,7 +112,7 @@ const seedExpenses = async () => {
     const fuelType: FuelType = rand() < 0.2 ? 'ai98' : 'ai95'
     const price = (fuelType === 'ai98' ? 67.4 : 58.9) + (day / 360) * 5 + between(-0.6, 0.6)
     expenses.push({
-      id: newId(), category: 'fuel', title: 'Заправка', date: start + day * 86_400_000,
+      id: newId(), carId, category: 'fuel', title: 'Заправка', date: start + day * 86_400_000,
       amount: Math.round(liters * price), mileage: Math.round(km), comment: '',
       place: stations[Math.floor(rand() * stations.length)], liters, fuelType,
     })
@@ -138,7 +139,7 @@ const seedExpenses = async () => {
     ['maintenance', 'Мойка кузова', ago(12), 900, 'Мойка «Капля»', ''],
   ]
   for (const [category, title, d, amount, place, comment] of misc) {
-    expenses.push({ id: newId(), category, title, date: d, amount, mileage: kmAt(d), comment, place })
+    expenses.push({ id: newId(), carId, category, title, date: d, amount, mileage: kmAt(d), comment, place })
   }
   await db.expenses.bulkAdd(expenses)
 }
@@ -147,32 +148,25 @@ const seedExpenses = async () => {
  * Напоминания — для процедур и документов. Масло, фильтры, колодки и ремень ГРМ
  * отслеживаются как детали, чтобы одно и то же событие не появлялось дважды.
  */
-const seedReminders = async () => {
+const seedReminders = async (carId: string) => {
   const reminders: Reminder[] = [
-    { id: newId(), kind: 'osago', title: 'ОСАГО', intervalKm: 0, intervalMonths: 12, lastDate: date(2026, 3, 10),
+    { id: newId(), carId, kind: 'osago', title: 'ОСАГО', intervalKm: 0, intervalMonths: 12, lastDate: date(2026, 3, 10),
       lastMileage: 423_500, notificationsEnabled: true, notifyDaysBefore: 14 },
-    { id: newId(), kind: 'inspection', title: 'Техосмотр', intervalKm: 0, intervalMonths: 24, lastDate: date(2024, 10, 15),
+    { id: newId(), carId, kind: 'inspection', title: 'Техосмотр', intervalKm: 0, intervalMonths: 24, lastDate: date(2024, 10, 15),
       lastMileage: 401_000, notificationsEnabled: true, notifyDaysBefore: 14 },
   ]
   await db.reminders.bulkAdd(reminders)
 }
 
-const seed = () =>
+/** Добавляет демонстрационный автомобиль со всей историей; возвращает его id */
+export const addDemoCar = () =>
   db.transaction('rw', [db.cars, db.expenses, db.repairs, db.parts, db.reminders], async () => {
-    await db.cars.add({
-      id: newId(), make: 'Toyota', model: 'Aristo', bodyCode: 'JZS160', year: 1998, engine: '2JZ-GE',
-      vin: 'JZS160-0071345', plate: 'А160РС 178', mileage: 430_000, createdAt: Date.now(),
+    const car = await addCar({
+      make: 'Toyota', model: 'Aristo', bodyCode: 'JZS160', year: 1998, engine: '2JZ-GE',
+      vin: 'JZS160-0071345', plate: 'А160РС 178', mileage: 430_000,
     })
-    await seedRepairs()
-    await seedExpenses()
-    await seedReminders()
+    await seedRepairs(car.id)
+    await seedExpenses(car.id)
+    await seedReminders(car.id)
+    return car.id
   })
-
-export const seedIfNeeded = async () => {
-  if ((await db.cars.count()) === 0) await seed()
-}
-
-export const resetDemo = async () => {
-  await deleteAll()
-  await seed()
-}

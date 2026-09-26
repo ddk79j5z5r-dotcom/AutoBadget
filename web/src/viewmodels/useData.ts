@@ -1,25 +1,39 @@
-// Живые запросы к IndexedDB: компоненты перерисовываются при любом изменении данных
+// Живые запросы к IndexedDB: компоненты перерисовываются при любом изменении данных.
+// Списки — всегда в пределах выбранного автомобиля.
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Car, Expense, Part, Reminder, RepairRecord } from '@/models/types'
 import { db } from '@/services/db'
+import { useCurrentCar } from './currentCar'
 
 const EMPTY: never[] = []
 
-export const useCar = (): Car | undefined => useLiveQuery(() => db.cars.orderBy('createdAt').first(), [])
+/** Выбранный автомобиль */
+export const useCar = (): Car | undefined => useCurrentCar().car
 
-/** Расходы, новые сверху */
-export const useExpenses = (): Expense[] =>
-  useLiveQuery(() => db.expenses.orderBy('date').reverse().toArray(), []) ?? EMPTY
+/** Расходы выбранного автомобиля, новые сверху */
+export const useExpenses = (): Expense[] => {
+  const id = useCar()?.id
+  return useLiveQuery(() => (id ? db.expenses.where('carId').equals(id).reverse().sortBy('date') : EMPTY), [id]) ?? EMPTY
+}
 
-/** Ремонты, новые сверху */
-export const useRepairs = (): RepairRecord[] =>
-  useLiveQuery(() => db.repairs.orderBy('date').reverse().toArray(), []) ?? EMPTY
+/** Ремонты выбранного автомобиля, новые сверху */
+export const useRepairs = (): RepairRecord[] => {
+  const id = useCar()?.id
+  return useLiveQuery(() => (id ? db.repairs.where('carId').equals(id).reverse().sortBy('date') : EMPTY), [id]) ?? EMPTY
+}
 
-export const useActiveParts = (): Part[] =>
-  useLiveQuery(() => db.parts.where('isActive').equals(1).toArray(), []) ?? EMPTY
+export const useActiveParts = (): Part[] => {
+  const id = useCar()?.id
+  return useLiveQuery(
+    () => (id ? db.parts.where('carId').equals(id).filter(p => p.isActive === 1).toArray() : EMPTY), [id],
+  ) ?? EMPTY
+}
 
-export const useReminders = (): Reminder[] => useLiveQuery(() => db.reminders.toArray(), []) ?? EMPTY
+export const useReminders = (): Reminder[] => {
+  const id = useCar()?.id
+  return useLiveQuery(() => (id ? db.reminders.where('carId').equals(id).toArray() : EMPTY), [id]) ?? EMPTY
+}
 
 export const useRepair = (id: string | undefined) =>
   useLiveQuery(() => (id ? db.repairs.get(id) : undefined), [id])
@@ -28,6 +42,3 @@ export const usePart = (id: string | undefined) => useLiveQuery(() => (id ? db.p
 
 export const usePartsOfRepair = (repairId: string | undefined): Part[] =>
   useLiveQuery(() => (repairId ? db.parts.where('repairId').equals(repairId).sortBy('name') : []), [repairId]) ?? EMPTY
-
-/** Первый вызов вернёт undefined — пока база не ответила, экраны показывают пустое состояние без мигания */
-export const useIsLoaded = () => useLiveQuery(() => db.cars.count(), []) !== undefined

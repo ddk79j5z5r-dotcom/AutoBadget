@@ -9,21 +9,20 @@ import {
 import { db } from '@/services/db'
 import { updateMileage } from '@/services/dataService'
 import { fromDateInput, grouped, parseNumber, toDateInput } from '@/services/formatters'
+import { useCar } from '@/viewmodels/useData'
 
 const formatNumber = (n?: number) => (n ? grouped(n) : '')
 
 /** Добавление / редактирование расхода — порт AddExpenseView + AddExpenseViewModel */
-export const AddExpenseSheet = ({ expense, preset, currentMileage = 0, onClose }: {
+export const AddExpenseSheet = ({ expense, preset, onClose }: {
   expense?: Expense
   preset?: ExpenseCategory
-  currentMileage?: number
   onClose: () => void
 }) => {
   const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? preset ?? 'fuel')
   const [title, setTitle] = useState(expense?.title ?? expenseCategoryInfo[category].defaultTitle)
   const [date, setDate] = useState(toDateInput(expense?.date ?? Date.now()))
   const [amount, setAmount] = useState(formatNumber(expense?.amount))
-  const [mileage, setMileage] = useState(String(expense?.mileage || currentMileage || ''))
   const [fuelType, setFuelType] = useState<FuelType>(expense?.fuelType ?? 'ai95')
   const [liters, setLiters] = useState(expense?.liters ? String(expense.liters).replace('.', ',') : '')
   const [price, setPrice] = useState(expense && pricePerLiter(expense) ? pricePerLiter(expense)!.toFixed(2).replace('.', ',') : '')
@@ -31,11 +30,14 @@ export const AddExpenseSheet = ({ expense, preset, currentMileage = 0, onClose }
   const [comment, setComment] = useState(expense?.comment ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const firstField = useRef<HTMLInputElement>(null)
+  const car = useCar()
+  const carId = expense?.carId ?? car?.id
+  const [mileage, setMileage] = useState(String(expense?.mileage || car?.mileage || ''))
 
   const isFuel = category === 'fuel'
   const isLinkedToRepair = !!expense?.repairId
   const amountValue = parseNumber(amount) ?? 0
-  const valid = amountValue > 0 && title.trim() !== ''
+  const valid = amountValue > 0 && title.trim() !== '' && !!carId
 
   useEffect(() => {
     if (!expense) window.setTimeout(() => firstField.current?.focus(), 350)
@@ -54,10 +56,11 @@ export const AddExpenseSheet = ({ expense, preset, currentMileage = 0, onClose }
   }
 
   const save = async () => {
-    if (!valid) return
+    if (!valid || !carId) return
     const km = Math.round(parseNumber(mileage) ?? 0)
     const record: Expense = {
       id: expense?.id ?? newId(),
+      carId,
       category,
       title: title.trim(),
       date: fromDateInput(date),
@@ -70,7 +73,7 @@ export const AddExpenseSheet = ({ expense, preset, currentMileage = 0, onClose }
       repairId: expense?.repairId,
     }
     await db.expenses.put(record)
-    await updateMileage(km)
+    await updateMileage(carId, km)
     onClose()
   }
 

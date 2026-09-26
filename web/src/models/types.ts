@@ -99,6 +99,7 @@ export interface Car {
 
 export interface Expense {
   id: ID
+  carId: ID
   category: ExpenseCategory
   title: string
   date: number
@@ -116,6 +117,7 @@ export interface Expense {
 
 export interface RepairRecord {
   id: ID
+  carId: ID
   title: string
   category: RepairCategory
   date: number
@@ -136,6 +138,7 @@ export interface RepairRecord {
  */
 export interface Part {
   id: ID
+  carId: ID
   name: string
   category: RepairCategory
   manufacturer: string
@@ -157,6 +160,7 @@ export interface Part {
 
 export interface Reminder {
   id: ID
+  carId: ID
   kind: ReminderKind
   title: string
   intervalKm: number
