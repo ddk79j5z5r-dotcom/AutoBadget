@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+
+/* Токены темы — те же значения, что в iOS Theme.swift */
+@theme {
+  --color-bg: #000000;
+  --color-card: #16171a;
+  --color-elevated: #202226;
+  --color-field: #26282d;
+  --color-stroke: rgb(255 255 255 / 0.07);
+  --color-text: #ffffff;
+  --color-text-2: #9e9e9e;
+  --color-text-3: #666666;
+  --color-accent: #00d4aa;
+  --color-accent-deep: #00a887;
+  --color-warning: #ffb547;
+  --color-critical: #ff7a3d;
+  --color-danger: #ff5a5f;
+
+  --radius-card: 20px;
+  --radius-small: 14px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system, 'Inter', sans-serif;
+
+  --animate-appear: appear 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-sheet-in: sheet-in 0.38s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  --animate-fade-in: fade-in 0.25s ease both;
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Лёгкое бирюзовое свечение сверху, как ScreenBackground в iOS */
+.screen-glow {
+  background:
+    radial-gradient(ellipse 60% 380px at 50% -140px, rgb(0 212 170 / 0.16), transparent 70%),
+    var(--color-bg);
+}
+
+.font-rounded { font-family: var(--font-rounded); }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Поля ввода без стандартного оформления */
+input, textarea, select {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--color-text-3); }
+input[type='date']::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.6); }
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

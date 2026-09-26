@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Web
+web/node_modules/
+web/dist/
+
+# Локальные настройки Claude Code
+.claude/
+web/.claude/
