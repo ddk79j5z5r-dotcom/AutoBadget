@@ -13,6 +13,47 @@ import { useCar } from '@/viewmodels/useData'
 
 const formatNumber = (n?: number) => (n ? grouped(n) : '')
 
+/**
+ * Подписи полей «место» и «комментарий» под категорию: у заправки это АЗС, у страховки — компания,
+ * у запчастей комментарий становится списком купленного. Налогам поле места не нужно.
+ */
+const categoryFields: Record<ExpenseCategory, {
+  place?: { label: string; placeholder: string }
+  comment: { label: string; placeholder: string }
+}> = {
+  fuel: {
+    place: { label: 'АЗС', placeholder: 'Лукойл, Shell…' },
+    comment: { label: 'Комментарий (необязательно)', placeholder: 'Например: полный бак' },
+  },
+  maintenance: {
+    place: { label: 'Где делали', placeholder: 'СТО, мойка, детейлинг' },
+    comment: { label: 'Что сделано (необязательно)', placeholder: 'Например: замена антифриза, 6 л' },
+  },
+  tires: {
+    place: { label: 'Где', placeholder: 'Шиномонтаж, магазин' },
+    comment: { label: 'Комментарий (необязательно)', placeholder: 'Например: зимняя резина 225/55 R16' },
+  },
+  tuning: {
+    place: { label: 'Исполнитель / магазин', placeholder: 'Мастерская, магазин' },
+    comment: { label: 'Что сделано (необязательно)', placeholder: 'Например: линзы Bi-LED в фары' },
+  },
+  insurance: {
+    place: { label: 'Страховая компания', placeholder: 'Ингосстрах, Росгосстрах…' },
+    comment: { label: 'Комментарий (необязательно)', placeholder: 'Например: полис до 10.03.2027' },
+  },
+  taxes: {
+    comment: { label: 'Комментарий (необязательно)', placeholder: 'Например: оплачено через Госуслуги' },
+  },
+  repair: {
+    place: { label: 'СТО / мастер', placeholder: 'Название сервиса' },
+    comment: { label: 'Что сделано (необязательно)', placeholder: 'Например: замена сайлентблоков' },
+  },
+  parts: {
+    place: { label: 'Магазин', placeholder: 'Exist.ru, Emex…' },
+    comment: { label: 'Что куплено', placeholder: 'Например: колодки Akebono, диски Brembo' },
+  },
+}
+
 /** Добавление / редактирование расхода — порт AddExpenseView + AddExpenseViewModel */
 export const AddExpenseSheet = ({ expense, preset, onClose }: {
   expense?: Expense
@@ -35,6 +76,7 @@ export const AddExpenseSheet = ({ expense, preset, onClose }: {
   const [mileage, setMileage] = useState(String(expense?.mileage || car?.mileage || ''))
 
   const isFuel = category === 'fuel'
+  const fields = categoryFields[category]
   const isLinkedToRepair = !!expense?.repairId
   const amountValue = parseNumber(amount) ?? 0
   const valid = amountValue > 0 && title.trim() !== '' && !!carId
@@ -149,12 +191,14 @@ export const AddExpenseSheet = ({ expense, preset, onClose }: {
         <FieldRow label="Название">
           <FieldInput placeholder="Название" value={title} onChange={e => setTitle(e.target.value)} />
         </FieldRow>
-        <FieldRow label={isFuel ? 'АЗС' : 'Место покупки'}>
-          <FieldInput placeholder={isFuel ? 'Лукойл, Shell…' : 'Магазин, СТО'} value={place} onChange={e => setPlace(e.target.value)} />
-        </FieldRow>
+        {fields.place && (
+          <FieldRow label={fields.place.label}>
+            <FieldInput placeholder={fields.place.placeholder} value={place} onChange={e => setPlace(e.target.value)} />
+          </FieldRow>
+        )}
 
-        <FieldLabel>Комментарий (необязательно)</FieldLabel>
-        <TextArea placeholder="Например: АЗС Лукойл, 95" value={comment} onChange={e => setComment(e.target.value)} />
+        <FieldLabel>{fields.comment.label}</FieldLabel>
+        <TextArea placeholder={fields.comment.placeholder} value={comment} onChange={e => setComment(e.target.value)} />
 
         {expense && (
           <div className="pt-3">
